@@ -6,16 +6,18 @@ from sklearn.model_selection import train_test_split
 from timeit import default_timer as timer
 from dataset_manager.class_definitions import DatasetType, NNDatasetRow
 from dataset_manager.common_funtions import get_scored_goals, get_conceded_goals, get_y_ready_for_learning, fill_last_matches_stats
-from models import Match, Table, TableTeam, MatchResult
+from models import Match, Table, TableTeam, MatchResult, Season, League
 
 results_dict = {'H': 0, 'D': 1, 'A': 2}
-dataset_path = 'dataset_manager/datasets/dataset_ver_2'
+dataset_path = 'dataset_manager/datasets/dataset_ver_2_only_best'
 dataset_with_ext = dataset_path + '.csv'
 
 
 def create_dataset():
     dataset = []
-    root_matches = Match.select()
+    root_matches = Match.select().join(Season).join(League).where(
+        League.division == 1
+    )
     root_matches_count = root_matches.count()
     sum_of_time_elapsed = 0
     for index, root_match in enumerate(root_matches.iterator()):
