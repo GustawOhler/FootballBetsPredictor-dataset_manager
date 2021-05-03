@@ -5,11 +5,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from timeit import default_timer as timer
 from dataset_manager.class_definitions import DatasetType, NNDatasetRow
-from dataset_manager.common_funtions import get_scored_goals, get_conceded_goals, get_y_ready_for_learning
+from dataset_manager.common_funtions import get_scored_goals, get_conceded_goals, get_y_ready_for_learning, fill_last_matches_stats
 from models import Match, Table, TableTeam, MatchResult
 
 results_dict = {'H': 0, 'D': 1, 'A': 2}
-dataset_path = 'dataset_manager/datasets/dataset'
+dataset_path = 'dataset_manager/datasets/dataset_ver_2'
 dataset_with_ext = dataset_path + '.csv'
 
 
@@ -32,52 +32,45 @@ def create_dataset():
             (Match.date < root_match.date) &
             ((Match.home_team == root_home_team)
              | (Match.away_team == root_home_team))).order_by(Match.date.desc()).limit(5)
+        home_last_5_matches_as_home = Match.select().where(
+            (Match.date < root_match.date) &
+            (Match.home_team == root_home_team)).order_by(Match.date.desc()).limit(5)
         away_last_5_matches = Match.select().where(
             (Match.date < root_match.date) &
             ((Match.home_team == root_away_team)
              | (Match.away_team == root_away_team))).order_by(Match.date.desc()).limit(5)
-        if home_last_5_matches.count() != 5 or away_last_5_matches.count() != 5 or home_team_table_stats.matches_played < 3 or away_team_table_stats.matches_played < 3:
+        away_last_5_matches_as_away = Match.select().where(
+            (Match.date < root_match.date) &
+            (Match.away_team == root_away_team)).order_by(Match.date.desc()).limit(5)
+        last_3_matches_between_teams = Match.select().where(
+            (Match.date < root_match.date) &
+            ((Match.home_team == root_home_team & Match.away_team == root_away_team) |
+             (Match.home_team == root_away_team & Match.away_team == root_home_team))).order_by(Match.date.desc()).limit(3)
+        if home_last_5_matches.count() < 2 or away_last_5_matches.count() < 2 or home_team_table_stats.matches_played < 2 or \
+                away_team_table_stats.matches_played < 2:
             continue
         dataset_row = NNDatasetRow(home_position=home_team_table_stats.position, home_played_matches=home_team_table_stats.matches_played,
-                                   home_wins=home_team_table_stats.wins,
-                                   home_draws=home_team_table_stats.draws, home_loses=home_team_table_stats.loses,
-                                   home_goals_scored=home_team_table_stats.goals_scored,
-                                   home_goals_conceded=home_team_table_stats.goals_conceded, home_goal_difference=home_team_table_stats.goal_difference,
-                                   home_team_wins_in_last_5_matches=sum(1 for match in home_last_5_matches
-                                                                        if (match.full_time_result == MatchResult.HOME_WIN
-                                                                            and match.home_team == root_home_team)
-                                                                        or (match.full_time_result == MatchResult.AWAY_WIN
-                                                                            and match.away_team == root_home_team)),
-                                   home_team_draws_in_last_5_matches=sum(1 for match in home_last_5_matches if match.full_time_result == MatchResult.DRAW),
-                                   home_team_loses_in_last_5_matches=sum(1 for match in home_last_5_matches
-                                                                         if (match.full_time_result == MatchResult.AWAY_WIN
-                                                                             and match.home_team == root_home_team)
-                                                                         or (match.full_time_result == MatchResult.HOME_WIN
-                                                                             and match.away_team == root_home_team)),
-                                   home_team_scored_goals_in_last_5_matches=get_scored_goals(home_last_5_matches, root_home_team),
-                                   home_team_conceded_goals_in_last_5_matches=get_conceded_goals(home_last_5_matches, root_home_team),
+                                   home_wins=home_team_table_stats.wins / home_team_table_stats.matches_played,
+                                   home_draws=home_team_table_stats.draws / home_team_table_stats.matches_played,
+                                   home_loses=home_team_table_stats.loses / home_team_table_stats.matches_played,
+                                   home_goals_scored=home_team_table_stats.goals_scored / home_team_table_stats.matches_played,
+                                   home_goals_conceded=home_team_table_stats.goals_conceded / home_team_table_stats.matches_played,
+                                   home_goal_difference=home_team_table_stats.goal_difference,
+                                   home_last_5_matches=fill_last_matches_stats(home_last_5_matches, root_home_team),
+                                   home_last_5_matches_at_home=fill_last_matches_stats(home_last_5_matches_as_home, root_home_team),
                                    away_position=away_team_table_stats.position, away_played_matches=away_team_table_stats.matches_played,
-                                   away_wins=away_team_table_stats.wins,
-                                   away_draws=away_team_table_stats.draws, away_loses=away_team_table_stats.loses,
-                                   away_goals_scored=away_team_table_stats.goals_scored,
-                                   away_goals_conceded=away_team_table_stats.goals_conceded, away_goal_difference=away_team_table_stats.goal_difference,
-                                   away_team_wins_in_last_5_matches=sum(1 for match in away_last_5_matches
-                                                                        if (match.full_time_result == MatchResult.HOME_WIN
-                                                                            and match.home_team == root_away_team)
-                                                                        or (match.full_time_result == MatchResult.AWAY_WIN
-                                                                            and match.away_team == root_away_team)),
-                                   away_team_draws_in_last_5_matches=sum(1 for match in away_last_5_matches
-                                                                         if match.full_time_result == MatchResult.DRAW),
-                                   away_team_loses_in_last_5_matches=sum(1 for match in away_last_5_matches
-                                                                         if (match.full_time_result == MatchResult.AWAY_WIN
-                                                                             and match.home_team == root_away_team)
-                                                                         or (match.full_time_result == MatchResult.HOME_WIN
-                                                                             and match.away_team == root_away_team)),
-                                   away_team_scored_goals_in_last_5_matches=get_scored_goals(away_last_5_matches, root_away_team),
-                                   away_team_conceded_goals_in_last_5_matches=get_conceded_goals(away_last_5_matches, root_away_team),
+                                   away_wins=away_team_table_stats.wins / away_team_table_stats.matches_played,
+                                   away_draws=away_team_table_stats.draws / away_team_table_stats.matches_played,
+                                   away_loses=away_team_table_stats.loses / away_team_table_stats.matches_played,
+                                   away_goals_scored=away_team_table_stats.goals_scored / away_team_table_stats.matches_played,
+                                   away_goals_conceded=away_team_table_stats.goals_conceded / away_team_table_stats.matches_played,
+                                   away_goal_difference=away_team_table_stats.goal_difference,
+                                   away_last_5_matches=fill_last_matches_stats(away_last_5_matches, root_away_team),
+                                   away_last_5_matches_at_away=fill_last_matches_stats(away_last_5_matches_as_away, root_away_team),
                                    result=results_dict[root_match.full_time_result.value], home_odds=root_match.average_home_odds,
                                    draw_odds=root_match.average_draw_odds,
-                                   away_odds=root_match.average_away_odds)
+                                   away_odds=root_match.average_away_odds,
+                                   last_3_matches_between_teams=fill_last_matches_stats(last_3_matches_between_teams, root_home_team))
         dataset.append(dataset_row)
         sum_of_time_elapsed = sum_of_time_elapsed + timer() - row_create_start
         index_from_1 = index + 1
