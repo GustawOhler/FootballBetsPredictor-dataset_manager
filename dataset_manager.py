@@ -9,7 +9,7 @@ from dataset_manager.common_funtions import get_scored_goals, get_conceded_goals
 from models import Match, Table, TableTeam, MatchResult
 
 results_dict = {'H': 0, 'D': 1, 'A': 2}
-dataset_path = 'dataset_manager/datasets/dataset'
+dataset_path = 'dataset_manager/datasets/dataset_ver_1'
 dataset_with_ext = dataset_path + '.csv'
 
 
