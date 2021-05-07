@@ -121,8 +121,8 @@ def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split:
         dataset = create_dataset()
         return split_dataset(dataset, validation_to_train_split_ratio)
     else:
-        dataset = load_dataset()
         if should_create_new_split:
+            dataset = load_dataset()
             return split_dataset(dataset, validation_to_train_split_ratio)
         else:
             x_train, y_train = load_splitted_dataset(DatasetType.TRAIN)
