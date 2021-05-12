@@ -1,10 +1,12 @@
 from datetime import datetime
+from random import randrange
 from typing import List
 import numpy as np
 import pandas as pd
 from peewee import DateTimeField
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict
+from constants import dataset_with_ext
 from models import Match, Team, MatchResult, TableTeam, Table
 
 
@@ -127,3 +129,23 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
 #     one_hot_y = to_categorical(y, num_classes=3)
 #     zero_vector = np.zeros((one_hot_y.shape[0], 1))
 #     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
+def get_nn_input_attrs(dataset: pd.DataFrame):
+    return dataset.drop('result', axis='columns').drop('match_id', axis='columns').to_numpy(dtype='float32')
+
+
+def get_curr_dataset_column_names():
+    column_names = pd.read_csv(dataset_with_ext, nrows=1).columns.tolist()
+    column_names.remove('result')
+    column_names.remove('match_id')
+    return column_names
+
+
+def get_random_row_with_db_object():
+    dataset = pd.read_csv(dataset_with_ext)
+    dataset_len = dataset.shape[0]
+    return get_row_with_db_object(dataset, randrange(0, dataset_len))
+
+
+def get_row_with_db_object(dataset, index):
+    row = dataset.iloc[index]
+    return {'dataset_object': row, 'db_object': Match.get_by_id(row['match_id'])}
