@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import List
 
+results_dict = {'H': 0, 'D': 1, 'A': 2}
 
 class DatasetType(Enum):
     TRAIN = 'train'
@@ -21,7 +23,30 @@ class AggregatedMatchData:
 
 
 @dataclass
+class SingleMatchForRootData:
+    root_result: int = 0
+    is_home: int = 0
+    days_since_match: int = 0
+    league_level: int = 0
+    position: int = 0
+    opposite_team_position: int = 0
+    scored_goals: int = 0
+    conceded_goals: int = 0
+    shots_fired: int = 0
+    shots_fired_on_target: int = 0
+    shots_conceded: int = 0
+    shots_conceded_on_target: int = 0
+    corners_taken: int = 0
+    opposite_corners: int = 0
+    fouls_commited: int = 0
+    opposite_fouls: int = 0
+    cards: int = 0
+    opposite_cards: int = 0
+
+
+@dataclass
 class NNDatasetRow:
+    match_id: int
     home_position: int
     home_played_matches: int
     home_wins: float
@@ -47,3 +72,4 @@ class NNDatasetRow:
     draw_odds: float
     away_odds: float
     last_3_matches_between_teams: AggregatedMatchData
+
