@@ -5,12 +5,14 @@ from flatten_dict import flatten
 from dataset_manager.class_definitions import NNDatasetRow, results_dict
 from dataset_manager.common_funtions import create_match_infos, fill_last_matches_stats
 from constants import dataset_with_ext
-from models import Match, Table, TableTeam
+from models import Match, Table, TableTeam, Season, League
 
 
 def create_dataset():
     dataset = []
-    root_matches = Match.select()
+    root_matches = Match.select().join(Season).join(League).where(
+        League.division == 1
+    )
     root_matches_count = root_matches.count()
     sum_of_time_elapsed = 0
     for index, root_match in enumerate(root_matches.iterator()):
