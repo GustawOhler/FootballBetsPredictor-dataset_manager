@@ -68,7 +68,10 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
 def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split: bool, validation_to_train_split_ratio: float):
     if should_generate_dataset:
         dataset = create_dataset()
-        return split_dataset(dataset, validation_to_train_split_ratio)
+        if should_create_new_split:
+            return split_dataset(dataset, validation_to_train_split_ratio)
+        else:
+            return split_dataset_from_ids(dataset)
     else:
         if should_create_new_split:
             dataset = load_dataset()
