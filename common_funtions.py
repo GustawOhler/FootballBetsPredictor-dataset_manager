@@ -125,12 +125,19 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
     zero_vector = np.zeros((one_hot_y.shape[0], 1))
     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
 
+
 # def get_y_ready_for_learning(y: np.ndarray, odds: np.ndarray):
 #     one_hot_y = to_categorical(y, num_classes=3)
 #     zero_vector = np.zeros((one_hot_y.shape[0], 1))
 #     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
+
 def get_nn_input_attrs(dataset: pd.DataFrame):
-    return dataset.drop('result', axis='columns').drop('match_id', axis='columns').to_numpy(dtype='float32')
+    SHOULD_DROP_ODDS = True
+    dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
+    if SHOULD_DROP_ODDS:
+        dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
+            .drop('away_odds', axis='columns')
+    return dropped_basic_fields_dataset.to_numpy(dtype='float32')
 
 
 def get_curr_dataset_column_names():
