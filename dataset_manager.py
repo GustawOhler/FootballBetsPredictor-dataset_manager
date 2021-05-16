@@ -25,7 +25,7 @@ def save_splitted_dataset(dataset: pd.DataFrame, type: DatasetType):
 
 def load_splitted_dataset(type: DatasetType):
     dataset = pd.read_csv(dataset_path + '_' + type.value + '_split.csv')
-    x = dataset.drop('result', axis='columns').drop('match_id', axis='columns').to_numpy(dtype='float32')
+    x = get_nn_input_attrs(dataset)
     y = get_y_ready_for_learning(dataset)
     return x, y
 
@@ -58,9 +58,9 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
         val_dataset = dataset.loc[dataset['match_id'].isin(val_ids)]
         save_splitted_dataset(train_dataset, DatasetType.TRAIN)
         save_splitted_dataset(val_dataset, DatasetType.VAL)
-        x_train = train_dataset.drop('result', axis='columns').drop('match_id', axis='columns').to_numpy(dtype='float32')
+        x_train = get_nn_input_attrs(train_dataset)
         # y_train = train_dataset['result']
-        x_val = val_dataset.drop('result', axis='columns').drop('match_id', axis='columns').to_numpy(dtype='float32')
+        x_val = get_nn_input_attrs(val_dataset)
         # y_val = val_dataset['result']
         return (x_train, get_y_ready_for_learning(train_dataset)), (x_val, get_y_ready_for_learning(val_dataset))
 
