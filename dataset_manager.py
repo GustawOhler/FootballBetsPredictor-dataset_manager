@@ -39,6 +39,11 @@ def load_splitted_match_ids(type: DatasetType):
     return np.loadtxt(ids_path + '_' + type.value + '.txt')
 
 
+def load_ids_in_right_order(type: DatasetType):
+    dataset = pd.read_csv(dataset_path + '_' + type.value + '_split.csv')
+    return dataset['match_id'].to_numpy()
+
+
 def split_dataset(dataset: pd.DataFrame, validation_split):
     train_dataset, val_dataset = train_test_split(dataset, test_size=validation_split)
     save_splitted_dataset(train_dataset, DatasetType.TRAIN)
