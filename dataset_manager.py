@@ -1,4 +1,4 @@
-from os.path import isfile
+from os.path import isfile, getmtime
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -54,7 +54,11 @@ def split_dataset(dataset: pd.DataFrame, validation_split):
 
 
 def split_dataset_from_ids(dataset: pd.DataFrame):
-    if isfile(dataset_path + '_' + DatasetType.TRAIN.value + '_split.csv') and isfile(dataset_path + '_' + DatasetType.VAL.value + '_split.csv'):
+    train_dataset_path = dataset_path + '_' + DatasetType.TRAIN.value + '_split.csv'
+    val_dataset_path = dataset_path + '_' + DatasetType.VAL.value + '_split.csv'
+    train_ids_path = ids_path + '_' + DatasetType.TRAIN.value + '.txt'
+    if isfile(train_dataset_path) and isfile(val_dataset_path)\
+            and getmtime(train_dataset_path) > getmtime(train_ids_path):
         return load_splitted_dataset(DatasetType.TRAIN), load_splitted_dataset(DatasetType.VAL)
     else:
         train_ids = load_splitted_match_ids(DatasetType.TRAIN)
