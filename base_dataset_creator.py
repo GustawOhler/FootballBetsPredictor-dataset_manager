@@ -6,6 +6,7 @@ class BaseDatasetCreator(ABC):
     def __init__(self):
         self.matches_to_process = Match.select()
         self.dataset_objects = []
+        self.pandas_dataset = None
 
     @abstractmethod
     def gather_data(self):
