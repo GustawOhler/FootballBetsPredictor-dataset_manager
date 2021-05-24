@@ -1,4 +1,3 @@
-from datetime import datetime
 from random import randrange
 from typing import List
 import numpy as np
@@ -6,7 +5,7 @@ import pandas as pd
 from peewee import DateTimeField
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict
-from constants import dataset_with_ext
+from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET
 from models import Match, Team, MatchResult, TableTeam, Table
 
 
@@ -132,9 +131,8 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
 #     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
 
 def get_nn_input_attrs(dataset: pd.DataFrame):
-    SHOULD_DROP_ODDS = True
     dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
-    if SHOULD_DROP_ODDS:
+    if SHOULD_DROP_ODDS_FROM_DATASET:
         dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
             .drop('away_odds', axis='columns')
     return dropped_basic_fields_dataset.to_numpy(dtype='float32')
@@ -144,6 +142,10 @@ def get_curr_dataset_column_names():
     column_names = pd.read_csv(dataset_with_ext, nrows=1).columns.tolist()
     column_names.remove('result')
     column_names.remove('match_id')
+    if SHOULD_DROP_ODDS_FROM_DATASET:
+        column_names.remove('home_odds')
+        column_names.remove('draw_odds')
+        column_names.remove('away_odds')
     return column_names
 
 
