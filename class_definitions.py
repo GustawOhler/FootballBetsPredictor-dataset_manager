@@ -45,7 +45,7 @@ class SingleMatchForRootData:
 
 
 @dataclass
-class NNDatasetRow:
+class DatasetWithSeparatedMatchesRow:
     match_id: int
     home_position: int
     home_played_matches: int
@@ -55,7 +55,7 @@ class NNDatasetRow:
     home_goals_scored: float
     home_goals_conceded: float
     home_goal_difference: int
-    home_last_6_matches: List[SingleMatchForRootData]
+    home_last_4_matches: List[SingleMatchForRootData]
     away_position: int
     away_played_matches: int
     away_wins: float
@@ -64,15 +64,22 @@ class NNDatasetRow:
     away_goals_scored: float
     away_goals_conceded: float
     away_goal_difference: int
-    away_last_6_matches: List[SingleMatchForRootData]
+    away_last_4_matches: List[SingleMatchForRootData]
     result: int
     home_odds: float
     draw_odds: float
     away_odds: float
     last_3_matches_between_teams: AggregatedMatchData
+    home_last_5_matches_as_home: AggregatedMatchData
+    away_last_5_matches_as_away: AggregatedMatchData
+    home_position_last_season: int
+    home_league_level_last_season: int
+    away_position_last_season: int
+    away_league_level_last_season: int
 
 @dataclass
 class BasicDatasetRow:
+    match_id: int
     home_position: int
     home_played_matches: int
     home_wins: int
@@ -103,3 +110,32 @@ class BasicDatasetRow:
     home_odds: float
     draw_odds: float
     away_odds: float
+
+@dataclass
+class AggregatedDatasetRow:
+    match_id: int
+    home_position: int
+    home_played_matches: int
+    home_wins: float
+    home_draws: float
+    home_loses: float
+    home_goals_scored: float
+    home_goals_conceded: float
+    home_goal_difference: int
+    home_last_5_matches: AggregatedMatchData
+    home_last_5_matches_at_home: AggregatedMatchData
+    away_position: int
+    away_played_matches: int
+    away_wins: float
+    away_draws: float
+    away_loses: float
+    away_goals_scored: float
+    away_goals_conceded: float
+    away_goal_difference: int
+    away_last_5_matches: AggregatedMatchData
+    away_last_5_matches_at_away: AggregatedMatchData
+    result: int
+    home_odds: float
+    draw_odds: float
+    away_odds: float
+    last_3_matches_between_teams: AggregatedMatchData

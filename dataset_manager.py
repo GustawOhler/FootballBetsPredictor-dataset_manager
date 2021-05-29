@@ -2,45 +2,55 @@ from os.path import isfile, getmtime
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from constants import ids_path, dataset_path, dataset_with_ext
+from constants import ids_path, curr_dataset_name, dataset_with_ext, dataset_path
+from dataset_manager.basic_dataset_creator import BasicDatasetCreator
+from dataset_manager.dataset_with_aggregated_matches_creator import DatasetWithAggregatedMatchesCreator
+from dataset_manager.dataset_with_separated_matches_creator import DatasetWithSeparatedMatchesCreator
 from dataset_manager.class_definitions import DatasetType
 from dataset_manager.common_funtions import get_y_ready_for_learning, get_nn_input_attrs
-from dataset_manager.dataset_creator import create_dataset
 
 
 def load_dataset():
     return pd.read_csv(dataset_with_ext)
 
 
+def get_splitted_dataset_path(type: DatasetType):
+    return dataset_path + '_' + type.value + '_split.csv'
+
+
+def get_splitted_ids_path(type: DatasetType):
+    return ids_path + '_' + type.value + '.txt'
+
+
 def save_splitted_dataset(x, y, type: DatasetType, column_names):
     concat = np.column_stack((x, y))
     df = pd.DataFrame(data=concat, columns=column_names)
-    df.to_csv(dataset_path + '_' + type.value + '_split.csv', index=False, float_format='%.3f')
+    df.to_csv(get_splitted_dataset_path(type), index=False, float_format='%.3f')
     return df
 
 
 def save_splitted_dataset(dataset: pd.DataFrame, type: DatasetType):
-    dataset.to_csv(dataset_path + '_' + type.value + '_split.csv', index=False, float_format='%.3f')
+    dataset.to_csv(get_splitted_dataset_path(type), index=False, float_format='%.3f')
 
 
 def load_splitted_dataset(type: DatasetType):
-    dataset = pd.read_csv(dataset_path + '_' + type.value + '_split.csv')
+    dataset = pd.read_csv(get_splitted_dataset_path(type))
     x = get_nn_input_attrs(dataset)
     y = get_y_ready_for_learning(dataset)
     return x, y
 
 
 def save_splitted_match_ids(train_ids, val_ids):
-    np.savetxt(ids_path + '_' + DatasetType.TRAIN.value + '.txt', train_ids, fmt='%d')
-    np.savetxt(ids_path + '_' + DatasetType.VAL.value + '.txt', val_ids, fmt='%d')
+    np.savetxt(get_splitted_ids_path(DatasetType.TRAIN), train_ids, fmt='%d')
+    np.savetxt(get_splitted_ids_path(DatasetType.VAL), val_ids, fmt='%d')
 
 
 def load_splitted_match_ids(type: DatasetType):
-    return np.loadtxt(ids_path + '_' + type.value + '.txt')
+    return np.loadtxt(get_splitted_ids_path(type))
 
 
 def load_ids_in_right_order(type: DatasetType):
-    dataset = pd.read_csv(dataset_path + '_' + type.value + '_split.csv')
+    dataset = pd.read_csv(get_splitted_dataset_path(type))
     return dataset['match_id'].to_numpy()
 
 
@@ -76,7 +86,10 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
 
 def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split: bool, validation_to_train_split_ratio: float):
     if should_generate_dataset:
-        dataset = create_dataset()
+        dataset_creator = (globals()[curr_dataset_name])()
+        dataset_creator.gather_data()
+        dataset_creator.save_dataset_to_csv()
+        dataset = dataset_creator.pandas_dataset
         if should_create_new_split:
             return split_dataset(dataset, validation_to_train_split_ratio)
         else:

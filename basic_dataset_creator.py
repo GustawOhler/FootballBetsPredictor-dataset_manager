@@ -3,9 +3,8 @@ from timeit import default_timer as timer
 import pandas as pd
 from flatten_dict import flatten
 from dataset_manager.base_dataset_creator import BaseDatasetCreator
-from dataset_manager.class_definitions import NNDatasetRow, results_dict, BasicDatasetRow
+from dataset_manager.class_definitions import DatasetWithSeparatedMatchesRow, results_dict, BasicDatasetRow
 from dataset_manager.common_funtions import fill_last_matches_stats, get_scored_goals, get_conceded_goals
-from constants import dataset_with_ext
 from models import Match, Table, TableTeam, MatchResult
 
 
@@ -33,7 +32,8 @@ class BasicDatasetCreator(BaseDatasetCreator):
                  | (Match.away_team == root_away_team))).order_by(Match.date.desc()).limit(5)
             if home_last_5_matches.count() != 5 or away_last_5_matches.count() != 5 or home_team_table_stats.matches_played < 3 or away_team_table_stats.matches_played < 3:
                 continue
-            dataset_row = BasicDatasetRow(home_position=home_team_table_stats.position, home_played_matches=home_team_table_stats.matches_played,
+            dataset_row = BasicDatasetRow(match_id=root_match.id,
+                                          home_position=home_team_table_stats.position, home_played_matches=home_team_table_stats.matches_played,
                                           home_wins=home_team_table_stats.wins,
                                           home_draws=home_team_table_stats.draws, home_loses=home_team_table_stats.loses,
                                           home_goals_scored=home_team_table_stats.goals_scored,
@@ -81,9 +81,3 @@ class BasicDatasetCreator(BaseDatasetCreator):
                   + str("{:.2f}".format(index_from_1 * 100 / root_matches_count)) + "%. Sredni czas przetwarzania dla 100 rekordow: " + str(
                 "{:.2f} s".format(sum_of_time_elapsed * 100 / index_from_1)), end=("\r" if index_from_1 != root_matches_count else "\n"))
 
-    def save_dataset_to_csv(self):
-        csv_proccesing_start = timer()
-        self.pandas_dataset = pd.DataFrame(flatten(asdict(row), reducer='underscore') for row in self.dataset_objects)
-        self.pandas_dataset.to_csv(dataset_with_ext, index=False, float_format='%.3f')
-        csv_proccesing_end = timer()
-        print("Czas przetwarzania rekordow do csvki: " + str("{:.2f} s".format(csv_proccesing_end - csv_proccesing_start)))
