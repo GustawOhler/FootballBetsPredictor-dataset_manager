@@ -4,7 +4,7 @@ from typing import List
 
 results_dict = {'H': 0, 'D': 1, 'A': 2}
 
-class DatasetType(Enum):
+class DatasetSplit(Enum):
     TRAIN = 'train'
     VAL = 'val'
 
