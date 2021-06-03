@@ -1,13 +1,14 @@
+import re
 from random import randrange
 from typing import List
 import numpy as np
 import pandas as pd
 from peewee import DateTimeField
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from tensorflow.python.keras.utils.np_utils import to_categorical
-from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict
+from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict, DatasetSplit
 from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET
 from models import Match, Team, MatchResult, TableTeam, Table
-
 
 def get_scored_goals(matches: [Match], team: Team):
     return sum(match.full_time_home_goals for match in matches
@@ -130,11 +131,38 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
 #     zero_vector = np.zeros((one_hot_y.shape[0], 1))
 #     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
 
-def get_nn_input_attrs(dataset: pd.DataFrame):
+home_scalers = []
+away_scalers = []
+rest_scaler = RobustScaler()
+
+def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn):
     dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
     if SHOULD_DROP_ODDS_FROM_DATASET:
         dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
             .drop('away_odds', axis='columns')
+    if is_for_rnn:
+        home_data = np.stack(list(dataset[list(filter(lambda x: re.match('home_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+                                  .to_numpy(dtype='float32')
+                                  for i in reversed(range(4))), axis=1)
+        away_data = np.stack(list(dataset[list(filter(lambda x: re.match('away_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+                                  .to_numpy(dtype='float32')
+                                  for i in reversed(range(4))), axis=1)
+        rest_of_data = dropped_basic_fields_dataset.drop(list(filter(lambda x: re.match(r'(home|away)_last_4_matches_\d.*', x), dataset.columns.values))
+                                                         , axis='columns').to_numpy(dtype='float32')
+        for i in range(home_data.shape[1]):
+            if dataset_type == DatasetSplit.TRAIN:
+                home_scalers.append(RobustScaler())
+                away_scalers.append(RobustScaler())
+                home_data[:, i, :] = home_scalers[i].fit_transform(home_data[:, i, :])
+                away_data[:, i, :] = away_scalers[i].fit_transform(away_data[:, i, :])
+            else:
+                home_data[:, i, :] = home_scalers[i].transform(home_data[:, i, :])
+                away_data[:, i, :] = away_scalers[i].transform(away_data[:, i, :])
+        if dataset_type == DatasetSplit.TRAIN:
+            rest_of_data = rest_scaler.fit_transform(rest_of_data)
+        else:
+            rest_of_data = rest_scaler.transform(rest_of_data)
+        return home_data, away_data, rest_of_data
     return dropped_basic_fields_dataset.to_numpy(dtype='float32')
 
 
