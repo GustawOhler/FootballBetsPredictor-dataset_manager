@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 from peewee import DateTimeField
-from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict, DatasetSplit
 from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET
@@ -134,6 +134,7 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
 home_scalers = []
 away_scalers = []
 rest_scaler = RobustScaler()
+one_big_scaler = RobustScaler()
 
 def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn):
     dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
@@ -149,20 +150,29 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
                                   for i in reversed(range(4))), axis=1)
         rest_of_data = dropped_basic_fields_dataset.drop(list(filter(lambda x: re.match(r'(home|away)_last_4_matches_\d.*', x), dataset.columns.values))
                                                          , axis='columns').to_numpy(dtype='float32')
+
+        all_data = np.concatenate([home_data, away_data], axis=0)
+        all_data_reshaped = np.reshape(all_data, (all_data.shape[0] * all_data.shape[1], all_data.shape[2]))
+        one_big_scaler.fit(all_data_reshaped)
+
         for i in range(home_data.shape[1]):
-            if dataset_type == DatasetSplit.TRAIN:
-                home_scalers.append(RobustScaler())
-                away_scalers.append(RobustScaler())
-                home_data[:, i, :] = home_scalers[i].fit_transform(home_data[:, i, :])
-                away_data[:, i, :] = away_scalers[i].fit_transform(away_data[:, i, :])
+            if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
+                home_data[:, i, :] = one_big_scaler.transform(home_data[:, i, :])
+                away_data[:, i, :] = one_big_scaler.transform(away_data[:, i, :])
+                # home_scalers.append(RobustScaler())
+                # away_scalers.append(RobustScaler())
+                # home_data[:, i, :] = home_scalers[i].fit_transform(home_data[:, i, :])
+                # away_data[:, i, :] = away_scalers[i].fit_transform(away_data[:, i, :])
             else:
-                home_data[:, i, :] = home_scalers[i].transform(home_data[:, i, :])
-                away_data[:, i, :] = away_scalers[i].transform(away_data[:, i, :])
-        if dataset_type == DatasetSplit.TRAIN:
+                # home_data[:, i, :] = home_scalers[i].transform(home_data[:, i, :])
+                # away_data[:, i, :] = away_scalers[i].transform(away_data[:, i, :])
+                home_data[:, i, :] = one_big_scaler.transform(home_data[:, i, :])
+                away_data[:, i, :] = one_big_scaler.transform(away_data[:, i, :])
+        if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
             rest_of_data = rest_scaler.fit_transform(rest_of_data)
         else:
             rest_of_data = rest_scaler.transform(rest_of_data)
-        return home_data, away_data, rest_of_data
+        return [home_data, away_data, rest_of_data]
     return dropped_basic_fields_dataset.to_numpy(dtype='float32')
 
 
