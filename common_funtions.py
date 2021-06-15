@@ -10,13 +10,22 @@ from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchFo
 from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET
 from models import Match, Team, MatchResult, TableTeam, Table
 
-def get_scored_goals(matches: [Match], team: Team):
+
+def get_scored_goals(matches: [Match], team: Team, half_time: bool = False):
+    if half_time:
+        return sum(match.half_time_home_goals for match in matches
+                   if match.home_team == team) + sum(match.half_time_away_goals for match in matches
+                                                     if match.away_team == team)
     return sum(match.full_time_home_goals for match in matches
                if match.home_team == team) + sum(match.full_time_away_goals for match in matches
                                                  if match.away_team == team)
 
 
-def get_conceded_goals(matches: [Match], team: Team):
+def get_conceded_goals(matches: [Match], team: Team, half_time: bool = False):
+    if half_time:
+        return sum(match.half_time_away_goals for match in matches
+                   if match.home_team == team) + sum(match.half_time_home_goals for match in matches
+                                                     if match.away_team == team)
     return sum(match.full_time_away_goals for match in matches
                if match.home_team == team) + sum(match.full_time_home_goals for match in matches
                                                  if match.away_team == team)
@@ -90,6 +99,15 @@ def fill_last_matches_stats(matches: [Match], team: Team):
                                shots_conceded_on_target=get_shots_conceded_on_target(matches, team) / matches_count)
 
 
+def get_result_from_perspective(result: MatchResult, is_my_team_home: bool):
+    if is_my_team_home or result == MatchResult.DRAW:
+        return results_dict[result.value]
+    elif result == MatchResult.HOME_WIN:
+        return results_dict[MatchResult.AWAY_WIN.value]
+    elif result == MatchResult.AWAY_WIN:
+        return results_dict[MatchResult.HOME_WIN.value]
+
+
 def create_match_infos(matches: List[Match], team: Team, date_of_root_match: DateTimeField, how_many_expected: int):
     result_list = []
     for curr_match in matches:
@@ -101,7 +119,7 @@ def create_match_infos(matches: List[Match], team: Team, date_of_root_match: Dat
         opp_team_table_stats = TableTeam.get(
             (TableTeam.team == opp_team) & (TableTeam.table == table_before_match))
         result_list.append(SingleMatchForRootData(
-            root_result=results_dict[curr_match.full_time_result.value], is_home=int(is_home),
+            root_result=get_result_from_perspective(curr_match.full_time_result, is_home), is_home=int(is_home),
             days_since_match=(date_of_root_match - curr_match.date).days,
             league_level=curr_match.season.league.division, position=root_team_table_stats.position, opposite_team_position=opp_team_table_stats.position,
             scored_goals=get_scored_goals([curr_match], team), conceded_goals=get_conceded_goals([curr_match], team),
@@ -110,7 +128,10 @@ def create_match_infos(matches: List[Match], team: Team, date_of_root_match: Dat
             corners_taken=get_team_property([curr_match], team, 'team_corners'), opposite_corners=get_opp_property([curr_match], team, 'team_corners'),
             fouls_commited=get_team_property([curr_match], team, 'team_fouls_committed'),
             opposite_fouls=get_opp_property([curr_match], team, 'team_fouls_committed'),
-            cards=get_team_cards_summed([curr_match], team), opposite_cards=get_opp_cards_summed([curr_match], team)
+            cards=get_team_cards_summed([curr_match], team), opposite_cards=get_opp_cards_summed([curr_match], team),
+            half_time_result=get_result_from_perspective(curr_match.half_time_result, is_home),
+            half_time_scored_goals=get_scored_goals([curr_match], team, True),
+            half_time_conceded_goals=get_conceded_goals([curr_match], team, True)
         ))
     if len(result_list) < how_many_expected:
         for i in range(how_many_expected - len(result_list)):
@@ -142,12 +163,21 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
         dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
             .drop('away_odds', axis='columns')
     if is_for_rnn:
-        home_data = np.stack(list(dataset[list(filter(lambda x: re.match('home_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+        dataset_without_half_results = dataset[dataset.columns.drop(dataset.filter(regex='.*half.*'))]
+        home_data = np.stack(list(dataset_without_half_results[list(filter(lambda x: re.match('home_last_4_matches_' + str(i) + '.*', x),
+                                                                           dataset_without_half_results.columns.values))]
                                   .to_numpy(dtype='float32')
                                   for i in reversed(range(4))), axis=1)
-        away_data = np.stack(list(dataset[list(filter(lambda x: re.match('away_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+        away_data = np.stack(list(dataset_without_half_results[list(filter(lambda x: re.match('away_last_4_matches_' + str(i) + '.*', x),
+                                                                           dataset_without_half_results.columns.values))]
                                   .to_numpy(dtype='float32')
                                   for i in reversed(range(4))), axis=1)
+        # home_data = np.stack(list(dataset[list(filter(lambda x: re.match('home_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+        #                           .to_numpy(dtype='float32')
+        #                           for i in reversed(range(4))), axis=1)
+        # away_data = np.stack(list(dataset[list(filter(lambda x: re.match('away_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
+        #                           .to_numpy(dtype='float32')
+        #                           for i in reversed(range(4))), axis=1)
         rest_of_data = dropped_basic_fields_dataset.drop(list(filter(lambda x: re.match(r'(home|away)_last_4_matches_\d.*', x), dataset.columns.values))
                                                          , axis='columns').to_numpy(dtype='float32')
 

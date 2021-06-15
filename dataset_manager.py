@@ -1,3 +1,4 @@
+from datetime import datetime
 from os.path import isfile, getmtime
 from random import sample
 from typing import List
@@ -13,9 +14,11 @@ from dataset_manager.class_definitions import DatasetSplit
 from dataset_manager.common_funtions import get_y_ready_for_learning, get_nn_input_attrs
 import matplotlib.pyplot as plt
 from models import Match, Season, League
+import hashlib
 
-wanted_match_ids_query = Match.select(Match.id).join(Season).join(League).where(League.division == 1)
-val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((League.division == 1))
+wanted_match_ids_query = Match.select(Match.id).join(Season).join(League).where(Match.average_home_odds != 0)
+val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((League.division == 1) & (Match.date > datetime(2018,1,1)) & (Match.date <
+                                                                                                                                           datetime(2020,1,1)))
 
 def show_dataset_histogram(dataset: pd.DataFrame):
     column_names = dataset.columns.values
@@ -44,12 +47,23 @@ def load_dataset():
     return pd.read_csv(dataset_with_ext)
 
 
+def get_query_hash_string():
+    hashes = ''
+    if TAKE_MATCHES_FROM_QUERY:
+        sql_query_whole = wanted_match_ids_query.sql()[0]
+        hashes += '_' + hashlib.sha1(sql_query_whole.encode("UTF-8")).hexdigest()[:8]
+    if SPLIT_MATCHES_BY_QUERY:
+        sql_query_split = val_match_ids_query.sql()[0]
+        hashes += '_' + hashlib.sha1(sql_query_split.encode("UTF-8")).hexdigest()[:8]
+    return hashes
+
+
 def get_splitted_dataset_path(type: DatasetSplit):
-    return dataset_path + '_' + type.value + '_split.csv'
+    return dataset_path + '_' + type.value + '_split' + get_query_hash_string() + '.csv'
 
 
 def get_splitted_ids_path(type: DatasetSplit):
-    return ids_path + '_' + type.value + '.txt'
+    return ids_path + '_' + type.value + get_query_hash_string() + '.txt'
 
 
 def save_splitted_dataset(x, y, type: DatasetSplit, column_names):
@@ -99,7 +113,7 @@ def split_dataset_by_query(dataset: pd.DataFrame, validation_split):
             indexes_to_take = sample(range(0, validation_candidate.shape[0]), wanted_quantity)
             validation_candidate = validation_candidate.iloc[indexes_to_take]
         train_set = dataset.loc[~dataset['match_id'].isin(validation_candidate['match_id'])]
-        # save_new_splits(train_set, validation_candidate)
+        save_new_splits(train_set, validation_candidate)
         return (get_nn_input_attrs(train_set, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_set)), (
             get_nn_input_attrs(validation_candidate, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(validation_candidate))
     else:
@@ -118,7 +132,7 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
     val_dataset_path = dataset_path + '_' + DatasetSplit.VAL.value + '_split.csv'
     train_ids_path = ids_path + '_' + DatasetSplit.TRAIN.value + '.txt'
     if isfile(train_dataset_path) and isfile(val_dataset_path) \
-            and getmtime(train_dataset_path) > getmtime(train_ids_path):
+            and getmtime(train_dataset_path) >= getmtime(train_ids_path):
         return load_splitted_dataset(DatasetSplit.TRAIN), load_splitted_dataset(DatasetSplit.VAL)
     else:
         train_ids = load_splitted_match_ids(DatasetSplit.TRAIN)
@@ -132,6 +146,8 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
         x_val = get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn)
         # y_val = val_dataset['result']
         return (x_train, get_y_ready_for_learning(train_dataset)), (x_val, get_y_ready_for_learning(val_dataset))
+
+
 
 
 def get_matches_with_id(dataset: pd.DataFrame):

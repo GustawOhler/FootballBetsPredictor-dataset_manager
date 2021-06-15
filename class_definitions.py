@@ -43,6 +43,9 @@ class SingleMatchForRootData:
     opposite_fouls: int = 0
     cards: int = 0
     opposite_cards: int = 0
+    half_time_scored_goals: int = 0
+    half_time_conceded_goals: int = 0
+    half_time_result: int = 0
 
 
 @dataclass
@@ -140,3 +143,7 @@ class AggregatedDatasetRow:
     draw_odds: float
     away_odds: float
     last_3_matches_between_teams: AggregatedMatchData
+    home_position_last_season: int
+    home_league_level_last_season: int
+    away_position_last_season: int
+    away_league_level_last_season: int

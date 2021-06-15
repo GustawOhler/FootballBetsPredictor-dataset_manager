@@ -41,9 +41,9 @@ class DatasetWithSeparatedMatchesCreator(BaseDatasetCreator):
                 (((Match.home_team == root_home_team) & (Match.away_team == root_away_team)) |
                  ((Match.home_team == root_away_team) & (Match.away_team == root_home_team)))).order_by(Match.date.desc()).limit(3)
             home_table_last_season = TableTeam.select(TableTeam.position, League.division).join(Team).switch(TableTeam).join(Table).join(Season).join(League)\
-                .where((Team==root_home_team) & (Season.end_date < root_match.date)).order_by(Table.date.desc()).limit(1).first()
+                .where((TableTeam.team == root_home_team) & (Season.end_date < root_match.date)).order_by(Table.date.desc()).limit(1).dicts().first()
             away_table_last_season = TableTeam.select(TableTeam.position, League.division).join(Team).switch(TableTeam).join(Table).join(Season).join(League)\
-                .where((Team == root_away_team) & (Season.end_date < root_match.date)).order_by(Table.date.desc()).limit(1).first()
+                .where((TableTeam.team == root_away_team) & (Season.end_date < root_match.date)).order_by(Table.date.desc()).limit(1).dicts().first()
             if home_team_table_stats.matches_played < 2 or away_team_table_stats.matches_played < 2:
                 continue
             dataset_row = DatasetWithSeparatedMatchesRow(match_id=root_match.id,
@@ -69,13 +69,13 @@ class DatasetWithSeparatedMatchesCreator(BaseDatasetCreator):
                                                          last_3_matches_between_teams=fill_last_matches_stats(last_3_matches_between_teams, root_home_team),
                                                          home_last_5_matches_as_home=fill_last_matches_stats(home_last_5_matches_as_home, root_home_team),
                                                          away_last_5_matches_as_away=fill_last_matches_stats(away_last_5_matches_as_away, root_away_team),
-                                                         home_position_last_season= home_table_last_season.position if home_table_last_season is not None
+                                                         home_position_last_season= home_table_last_season['position'] if home_table_last_season is not None
                                                          else 0,
-                                                         home_league_level_last_season=home_table_last_season.division if home_table_last_season is not None
+                                                         home_league_level_last_season=home_table_last_season['division'] if home_table_last_season is not None
                                                          else 0,
-                                                         away_position_last_season=away_table_last_season.position if away_table_last_season is not None
+                                                         away_position_last_season=away_table_last_season['position'] if away_table_last_season is not None
                                                          else 0,
-                                                         away_league_level_last_season=away_table_last_season.division if away_table_last_season is not None
+                                                         away_league_level_last_season=away_table_last_season['division'] if away_table_last_season is not None
                                                          else 0)
             self.dataset_objects.append(dataset_row)
             sum_of_time_elapsed = sum_of_time_elapsed + timer() - row_create_start
