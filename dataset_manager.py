@@ -1,7 +1,6 @@
 from datetime import datetime
 from os.path import isfile, getmtime
 from random import sample
-from typing import List
 import keyboard
 import pandas as pd
 import numpy as np
@@ -16,8 +15,9 @@ import matplotlib.pyplot as plt
 from models import Match, Season, League
 import hashlib
 
-wanted_match_ids_query = Match.select(Match.id).join(Season).join(League).where(Match.average_home_odds != 0)
-val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((League.division == 1) & (Match.date > datetime(2018,1,1)) & (Match.date <
+wanted_match_ids_query = Match.select(Match.id).join(Season).join(League).where((Match.average_home_odds != 0.0) & (Match.average_away_odds != 0.0)
+                                                                                & (Match.average_draw_odds != 0.0))
+val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((League.division == 1) & (Match.date > datetime(2017, 6, 30)) & (Match.date <
                                                                                                                                            datetime(2020,1,1)))
 
 def show_dataset_histogram(dataset: pd.DataFrame):
@@ -84,9 +84,11 @@ def load_splitted_dataset(type: DatasetSplit):
     return x, y
 
 
-def save_splitted_match_ids(train_ids, val_ids):
+def save_splitted_match_ids(train_ids, val_ids, test_ids):
     np.savetxt(get_splitted_ids_path(DatasetSplit.TRAIN), train_ids, fmt='%d')
     np.savetxt(get_splitted_ids_path(DatasetSplit.VAL), val_ids, fmt='%d')
+    if test_ids is not None:
+        np.savetxt(get_splitted_ids_path(DatasetSplit.TEST), test_ids, fmt='%d')
 
 
 def load_splitted_match_ids(type: DatasetSplit):
@@ -98,13 +100,17 @@ def load_ids_in_right_order(type: DatasetSplit):
     return dataset['match_id'].to_numpy()
 
 
-def save_new_splits(train_set, val_set):
+def save_new_splits(train_set, val_set, test_set):
     save_splitted_dataset(train_set, DatasetSplit.TRAIN)
     save_splitted_dataset(val_set, DatasetSplit.VAL)
-    save_splitted_match_ids(train_set['match_id'].to_numpy(), val_set['match_id'].to_numpy())
+    if test_set is not None:
+        save_splitted_dataset(test_set, DatasetSplit.TEST)
+        save_splitted_match_ids(train_set['match_id'].to_numpy(), val_set['match_id'].to_numpy(), test_set['match_id'].to_numpy())
+    else:
+        save_splitted_match_ids(train_set['match_id'].to_numpy(), val_set['match_id'].to_numpy(), None)
 
 
-def split_dataset_by_query(dataset: pd.DataFrame, validation_split):
+def split_dataset_by_query(dataset: pd.DataFrame, validation_split: float, test_split: float):
     wanted_quantity = int(validation_split * dataset.shape[0])
     match_ids = [match.id for match in val_match_ids_query]
     if len(match_ids) > 0:
@@ -113,27 +119,45 @@ def split_dataset_by_query(dataset: pd.DataFrame, validation_split):
             indexes_to_take = sample(range(0, validation_candidate.shape[0]), wanted_quantity)
             validation_candidate = validation_candidate.iloc[indexes_to_take]
         train_set = dataset.loc[~dataset['match_id'].isin(validation_candidate['match_id'])]
-        save_new_splits(train_set, validation_candidate)
-        return (get_nn_input_attrs(train_set, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_set)), (
-            get_nn_input_attrs(validation_candidate, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(validation_candidate))
+        test_set = None
+        if test_split > 0.0:
+            indexes_to_take_for_test = sample(range(0, validation_candidate.shape[0]), int(validation_candidate.shape[0] * test_split))
+            test_set = validation_candidate.iloc[indexes_to_take_for_test]
+            validation_candidate = validation_candidate.drop(validation_candidate.index[indexes_to_take_for_test])
+        save_new_splits(train_set, validation_candidate, test_set)
+        returned_datasets = [(get_nn_input_attrs(train_set, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_set)), (
+            get_nn_input_attrs(validation_candidate, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(validation_candidate))]
+        if test_set is not None:
+            returned_datasets.append((get_nn_input_attrs(test_set, DatasetSplit.TEST, is_model_rnn), get_y_ready_for_learning(test_set)))
+        return returned_datasets
     else:
         return split_dataset(dataset, validation_split)
 
 
-def split_dataset(dataset: pd.DataFrame, validation_split):
+def split_dataset(dataset: pd.DataFrame, validation_split: float, test_split: float):
     train_dataset, val_dataset = train_test_split(dataset, test_size=validation_split)
-    save_new_splits(train_dataset, val_dataset)
-    return (get_nn_input_attrs(train_dataset, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_dataset)), (
-        get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(val_dataset))
+    test_set = None
+    if test_split > 0.0:
+        val_dataset, test_set = train_test_split(val_dataset, test_size=test_split)
+    save_new_splits(train_dataset, val_dataset, test_set)
+    returned_datasets = [(get_nn_input_attrs(train_dataset, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_dataset)), (
+        get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(val_dataset))]
+    if test_set is not None:
+        returned_datasets.append((get_nn_input_attrs(test_set, DatasetSplit.TEST, is_model_rnn), get_y_ready_for_learning(test_set)))
+    return returned_datasets
 
 
 def split_dataset_from_ids(dataset: pd.DataFrame):
-    train_dataset_path = dataset_path + '_' + DatasetSplit.TRAIN.value + '_split.csv'
-    val_dataset_path = dataset_path + '_' + DatasetSplit.VAL.value + '_split.csv'
-    train_ids_path = ids_path + '_' + DatasetSplit.TRAIN.value + '.txt'
+    train_dataset_path = get_splitted_dataset_path(DatasetSplit.TRAIN)
+    val_dataset_path = get_splitted_dataset_path(DatasetSplit.VAL)
+    test_dataset_path = get_splitted_dataset_path(DatasetSplit.TEST)
+    train_ids_path = get_splitted_ids_path(DatasetSplit.TRAIN)
     if isfile(train_dataset_path) and isfile(val_dataset_path) \
             and getmtime(train_dataset_path) >= getmtime(train_ids_path):
-        return load_splitted_dataset(DatasetSplit.TRAIN), load_splitted_dataset(DatasetSplit.VAL)
+        returned_datasets = [load_splitted_dataset(DatasetSplit.TRAIN), load_splitted_dataset(DatasetSplit.VAL)]
+        if isfile(test_dataset_path):
+            returned_datasets.append(load_splitted_dataset(DatasetSplit.TEST))
+        return returned_datasets
     else:
         train_ids = load_splitted_match_ids(DatasetSplit.TRAIN)
         val_ids = load_splitted_match_ids(DatasetSplit.VAL)
@@ -145,9 +169,15 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
         # y_train = train_dataset['result']
         x_val = get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn)
         # y_val = val_dataset['result']
-        return (x_train, get_y_ready_for_learning(train_dataset)), (x_val, get_y_ready_for_learning(val_dataset))
-
-
+        returned_dataset = [(x_train, get_y_ready_for_learning(train_dataset)), (x_val, get_y_ready_for_learning(val_dataset))]
+        try:
+            test_ids = load_splitted_match_ids(DatasetSplit.TEST)
+            test_dataset = dataset.loc[dataset['match_id'].isin(test_ids)]
+            save_splitted_dataset(test_dataset, DatasetSplit.TEST)
+            x_test = get_nn_input_attrs(test_dataset, DatasetSplit.TEST, is_model_rnn)
+            returned_dataset.append((x_test, get_y_ready_for_learning(test_dataset)))
+        finally:
+            return returned_dataset
 
 
 def get_matches_with_id(dataset: pd.DataFrame):
@@ -158,7 +188,8 @@ def get_matches_with_id(dataset: pd.DataFrame):
     return dataset
 
 
-def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split: bool, validation_to_train_split_ratio: float):
+def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split: bool, validation_to_train_split_ratio: float,
+                         test_to_validation_split: float):
     if should_generate_dataset:
         dataset_creator = (globals()[curr_dataset_name])()
         dataset_creator.gather_data()
@@ -167,18 +198,18 @@ def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split:
         dataset = get_matches_with_id(dataset)
         if should_create_new_split:
             if SPLIT_MATCHES_BY_QUERY:
-                return split_dataset_by_query(dataset, validation_to_train_split_ratio)
+                return split_dataset_by_query(dataset, validation_to_train_split_ratio, test_to_validation_split)
             else:
-                return split_dataset(dataset, validation_to_train_split_ratio)
+                return split_dataset(dataset, validation_to_train_split_ratio, test_to_validation_split)
         else:
             return split_dataset_from_ids(dataset)
     else:
         if should_create_new_split:
             dataset = get_matches_with_id(load_dataset())
             if SPLIT_MATCHES_BY_QUERY:
-                return split_dataset_by_query(dataset, validation_to_train_split_ratio)
+                return split_dataset_by_query(dataset, validation_to_train_split_ratio, test_to_validation_split)
             else:
-                return split_dataset(dataset, validation_to_train_split_ratio)
+                return split_dataset(dataset, validation_to_train_split_ratio, test_to_validation_split)
         else:
             dataset = get_matches_with_id(load_dataset())
             return split_dataset_from_ids(dataset)

@@ -183,7 +183,8 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
 
         all_data = np.concatenate([home_data, away_data], axis=0)
         all_data_reshaped = np.reshape(all_data, (all_data.shape[0] * all_data.shape[1], all_data.shape[2]))
-        one_big_scaler.fit(all_data_reshaped)
+        if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
+            one_big_scaler.fit(all_data_reshaped)
 
         for i in range(home_data.shape[1]):
             if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:

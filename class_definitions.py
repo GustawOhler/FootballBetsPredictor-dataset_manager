@@ -7,6 +7,7 @@ results_dict = {'H': 0, 'D': 1, 'A': 2}
 class DatasetSplit(Enum):
     TRAIN = 'train'
     VAL = 'val'
+    TEST = 'test'
     WHOLE = 'whole'
 
 
