@@ -199,10 +199,10 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
                 # away_data[:, i, :] = away_scalers[i].transform(away_data[:, i, :])
                 home_data[:, i, :] = one_big_scaler.transform(home_data[:, i, :])
                 away_data[:, i, :] = one_big_scaler.transform(away_data[:, i, :])
-        if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
-            rest_of_data = rest_scaler.fit_transform(rest_of_data)
-        else:
-            rest_of_data = rest_scaler.transform(rest_of_data)
+        # if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
+        #     rest_of_data = rest_scaler.fit_transform(rest_of_data)
+        # else:
+        #     rest_of_data = rest_scaler.transform(rest_of_data)
         return [home_data, away_data, rest_of_data]
     return dropped_basic_fields_dataset.to_numpy(dtype='float32')
 

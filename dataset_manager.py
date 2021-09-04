@@ -17,8 +17,9 @@ import hashlib
 
 wanted_match_ids_query = Match.select(Match.id).join(Season).join(League).where((Match.average_home_odds != 0.0) & (Match.average_away_odds != 0.0)
                                                                                 & (Match.average_draw_odds != 0.0))
-val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((League.division == 1) & (Match.date > datetime(2017, 6, 30)) & (Match.date <
-                                                                                                                                           datetime(2020,1,1)))
+val_match_ids_query = Match.select(Match.id).join(Season).join(League).where((Match.date > datetime(2017, 6, 30)) & (Match.date <
+                                                                                                                     datetime(2020, 1, 1)))
+
 
 def show_dataset_histogram(dataset: pd.DataFrame):
     column_names = dataset.columns.values
@@ -47,9 +48,9 @@ def load_dataset():
     return pd.read_csv(dataset_with_ext)
 
 
-def get_query_hash_string():
+def get_query_hash_string(split_query_only: bool = False):
     hashes = ''
-    if TAKE_MATCHES_FROM_QUERY:
+    if TAKE_MATCHES_FROM_QUERY and not split_query_only:
         sql_query_whole = wanted_match_ids_query.sql()[0]
         hashes += '_' + hashlib.sha1(sql_query_whole.encode("UTF-8")).hexdigest()[:8]
     if SPLIT_MATCHES_BY_QUERY:
@@ -63,7 +64,7 @@ def get_splitted_dataset_path(type: DatasetSplit):
 
 
 def get_splitted_ids_path(type: DatasetSplit):
-    return ids_path + '_' + type.value + get_query_hash_string() + '.txt'
+    return ids_path + '_' + type.value + get_query_hash_string(True) + '.txt'
 
 
 def save_splitted_dataset(x, y, type: DatasetSplit, column_names):
@@ -101,13 +102,13 @@ def load_ids_in_right_order(type: DatasetSplit):
 
 
 def save_new_splits(train_set, val_set, test_set):
-    save_splitted_dataset(train_set, DatasetSplit.TRAIN)
-    save_splitted_dataset(val_set, DatasetSplit.VAL)
     if test_set is not None:
-        save_splitted_dataset(test_set, DatasetSplit.TEST)
         save_splitted_match_ids(train_set['match_id'].to_numpy(), val_set['match_id'].to_numpy(), test_set['match_id'].to_numpy())
+        save_splitted_dataset(test_set, DatasetSplit.TEST)
     else:
         save_splitted_match_ids(train_set['match_id'].to_numpy(), val_set['match_id'].to_numpy(), None)
+    save_splitted_dataset(train_set, DatasetSplit.TRAIN)
+    save_splitted_dataset(val_set, DatasetSplit.VAL)
 
 
 def split_dataset_by_query(dataset: pd.DataFrame, validation_split: float, test_split: float):
