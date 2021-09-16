@@ -3,6 +3,7 @@ from random import randrange
 from typing import List
 import numpy as np
 import pandas as pd
+from flatten_dict import flatten
 from peewee import DateTimeField
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from tensorflow.python.keras.utils.np_utils import to_categorical
@@ -157,9 +158,9 @@ away_scalers = []
 rest_scaler = RobustScaler()
 one_big_scaler = RobustScaler()
 
-def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn):
+def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn, should_drop_odds=SHOULD_DROP_ODDS_FROM_DATASET):
     dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
-    if SHOULD_DROP_ODDS_FROM_DATASET:
+    if should_drop_odds:
         dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
             .drop('away_odds', axis='columns')
     if is_for_rnn:
