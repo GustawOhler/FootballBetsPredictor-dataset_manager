@@ -143,10 +143,13 @@ def split_dataset_by_query(dataset: pd.DataFrame, validation_split: float, test_
 
 
 def split_dataset(dataset: pd.DataFrame, validation_split: float, test_split: float):
-    train_dataset, val_dataset = train_test_split(dataset, test_size=validation_split)
     test_set = None
     if test_split > 0.0:
-        val_dataset, test_set = train_test_split(val_dataset, test_size=test_split)
+        train_dataset, val_dataset, test_set = split_stratified_into_train_val_test(dataset, frac_train=1.0-validation_split-test_split,
+                                                                                    frac_val=validation_split*(1.0-test_split),
+                                                                                    frac_test=validation_split*test_split)
+    else:
+        train_dataset, val_dataset = train_test_split(dataset, test_size=validation_split, stratify=dataset[['result']])
     save_new_splits(train_dataset, val_dataset, test_set)
     returned_datasets = [(get_nn_input_attrs(train_dataset, DatasetSplit.TRAIN, is_model_rnn), get_y_ready_for_learning(train_dataset)), (
         get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn), get_y_ready_for_learning(val_dataset))]
