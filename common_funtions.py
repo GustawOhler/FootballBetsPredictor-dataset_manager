@@ -8,7 +8,7 @@ from peewee import DateTimeField
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from dataset_manager.class_definitions import AggregatedMatchData, SingleMatchForRootData, results_dict, DatasetSplit
-from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET
+from constants import dataset_with_ext, SHOULD_DROP_ODDS_FROM_DATASET, SHOULD_ADD_ODDS_AS_DATA_SEQUENCE
 from models import Match, Team, MatchResult, TableTeam, Table
 
 
@@ -158,7 +158,8 @@ away_scalers = []
 rest_scaler = RobustScaler()
 one_big_scaler = RobustScaler()
 
-def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn, should_drop_odds=SHOULD_DROP_ODDS_FROM_DATASET):
+def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for_rnn, should_drop_odds=SHOULD_DROP_ODDS_FROM_DATASET,
+                       should_add_odds_as_sequence=SHOULD_ADD_ODDS_AS_DATA_SEQUENCE):
     dropped_basic_fields_dataset = dataset.drop('result', axis='columns').drop('match_id', axis='columns')
     if should_drop_odds:
         dropped_basic_fields_dataset = dropped_basic_fields_dataset.drop('home_odds', axis='columns').drop('draw_odds', axis='columns') \
@@ -204,6 +205,9 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
         #     rest_of_data = rest_scaler.fit_transform(rest_of_data)
         # else:
         #     rest_of_data = rest_scaler.transform(rest_of_data)
+        if should_add_odds_as_sequence:
+            odds = dataset[['home_odds', 'draw_odds', 'away_odds']]
+            return [home_data, away_data, rest_of_data, odds]
         return [home_data, away_data, rest_of_data]
     return dropped_basic_fields_dataset.to_numpy(dtype='float32')
 

@@ -85,11 +85,14 @@ def save_splitted_dataset(dataset: pd.DataFrame, type: DatasetSplit):
     dataset.to_csv(get_splitted_dataset_path(type), index=False, float_format='%.3f')
 
 
-def load_splitted_dataset(type: DatasetSplit):
+def load_splitted_dataset(type: DatasetSplit, prepare_for_network:bool=True):
     dataset = pd.read_csv(get_splitted_dataset_path(type))
-    x = get_nn_input_attrs(dataset, type, is_model_rnn)
-    y = get_y_ready_for_learning(dataset)
-    return x, y
+    if prepare_for_network:
+        x = get_nn_input_attrs(dataset, type, is_model_rnn)
+        y = get_y_ready_for_learning(dataset)
+        return x, y
+    else:
+        return dataset
 
 
 def save_splitted_match_ids(train_ids, val_ids, test_ids):
@@ -145,7 +148,7 @@ def split_dataset_by_query(dataset: pd.DataFrame, validation_split: float, test_
 def split_dataset(dataset: pd.DataFrame, validation_split: float, test_split: float):
     test_set = None
     if test_split > 0.0:
-        train_dataset, val_dataset, test_set = split_stratified_into_train_val_test(dataset, frac_train=1.0-validation_split-test_split,
+        train_dataset, val_dataset, test_set = split_stratified_into_train_val_test(dataset, frac_train=1.0-validation_split,
                                                                                     frac_val=validation_split*(1.0-test_split),
                                                                                     frac_test=validation_split*test_split)
     else:
@@ -239,9 +242,7 @@ def split_dataset_from_ids(dataset: pd.DataFrame):
         save_splitted_dataset(train_dataset, DatasetSplit.TRAIN)
         save_splitted_dataset(val_dataset, DatasetSplit.VAL)
         x_train = get_nn_input_attrs(train_dataset, DatasetSplit.TRAIN, is_model_rnn)
-        # y_train = train_dataset['result']
         x_val = get_nn_input_attrs(val_dataset, DatasetSplit.VAL, is_model_rnn)
-        # y_val = val_dataset['result']
         returned_dataset = [(x_train, get_y_ready_for_learning(train_dataset)), (x_val, get_y_ready_for_learning(val_dataset))]
         try:
             test_ids = load_splitted_match_ids(DatasetSplit.TEST)
@@ -286,6 +287,14 @@ def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split:
         else:
             dataset = get_matches_with_id(load_dataset())
             return split_dataset_from_ids(dataset)
+
+
+def get_already_splitted_raw_dataset(split: DatasetSplit):
+    dataset_path = get_splitted_dataset_path(split)
+    if isfile(dataset_path):
+        return load_splitted_dataset(split, False)
+    else:
+        raise FileNotFoundError(f"File {dataset_path} not found")
 
 
 def get_whole_dataset(should_generate_dataset: bool, dataset_type: DatasetType = curr_dataset):
