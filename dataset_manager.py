@@ -285,7 +285,7 @@ def get_splitted_dataset(should_generate_dataset: bool, should_create_new_split:
             else:
                 return split_dataset(dataset, validation_to_train_split_ratio, test_to_validation_split)
         else:
-            dataset = get_matches_with_id(load_dataset())
+            dataset = load_dataset()
             return split_dataset_from_ids(dataset)
 
 
