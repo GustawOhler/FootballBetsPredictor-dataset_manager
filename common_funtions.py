@@ -147,12 +147,6 @@ def get_y_ready_for_learning(dataset: pd.DataFrame):
     zero_vector = np.zeros((one_hot_y.shape[0], 1))
     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
 
-
-# def get_y_ready_for_learning(y: np.ndarray, odds: np.ndarray):
-#     one_hot_y = to_categorical(y, num_classes=3)
-#     zero_vector = np.zeros((one_hot_y.shape[0], 1))
-#     return np.float32(np.concatenate((one_hot_y, zero_vector, odds), axis=1))
-
 home_scalers = []
 away_scalers = []
 rest_scaler = RobustScaler()
@@ -174,12 +168,6 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
                                                                            dataset_without_half_results.columns.values))]
                                   .to_numpy(dtype='float32')
                                   for i in reversed(range(4))), axis=1)
-        # home_data = np.stack(list(dataset[list(filter(lambda x: re.match('home_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
-        #                           .to_numpy(dtype='float32')
-        #                           for i in reversed(range(4))), axis=1)
-        # away_data = np.stack(list(dataset[list(filter(lambda x: re.match('away_last_4_matches_' + str(i) + '.*', x), dataset.columns.values))]
-        #                           .to_numpy(dtype='float32')
-        #                           for i in reversed(range(4))), axis=1)
         rest_of_data = dropped_basic_fields_dataset.drop(list(filter(lambda x: re.match(r'(home|away)_last_4_matches_\d.*', x), dataset.columns.values))
                                                          , axis='columns').to_numpy(dtype='float32')
 
@@ -192,13 +180,7 @@ def get_nn_input_attrs(dataset: pd.DataFrame, dataset_type: DatasetSplit, is_for
             if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
                 home_data[:, i, :] = one_big_scaler.transform(home_data[:, i, :])
                 away_data[:, i, :] = one_big_scaler.transform(away_data[:, i, :])
-                # home_scalers.append(RobustScaler())
-                # away_scalers.append(RobustScaler())
-                # home_data[:, i, :] = home_scalers[i].fit_transform(home_data[:, i, :])
-                # away_data[:, i, :] = away_scalers[i].fit_transform(away_data[:, i, :])
             else:
-                # home_data[:, i, :] = home_scalers[i].transform(home_data[:, i, :])
-                # away_data[:, i, :] = away_scalers[i].transform(away_data[:, i, :])
                 home_data[:, i, :] = one_big_scaler.transform(home_data[:, i, :])
                 away_data[:, i, :] = one_big_scaler.transform(away_data[:, i, :])
         # if dataset_type in [DatasetSplit.TRAIN, DatasetSplit.WHOLE]:
